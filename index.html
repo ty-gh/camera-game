@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>カメラ映像テスト</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: #111;
+      color: #eee;
+      font-family: system-ui, sans-serif;
+    }
+    #stage {
+      position: relative;
+      width: min(90vw, 960px);
+      aspect-ratio: 4 / 3;
+      background: #000;
+      overflow: hidden; /* 回転してはみ出た部分を隠す */
+    }
+    #video, #overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #video {
+      object-fit: cover;
+      /* 回転 → 鏡のように左右反転（自分を見ながら操作しやすい） */
+      transform: rotate(var(--rot, 0deg)) scaleX(-1);
+    }
+    #status { font-size: 14px; opacity: 0.8; }
+    #panel {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #222;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    #panel button {
+      padding: 6px 12px;
+      border: 1px solid #555;
+      border-radius: 6px;
+      background: #333;
+      color: #eee;
+      font: inherit;
+      cursor: pointer;
+    }
+    #panel button:hover { background: #444; }
+    #rotSlider { width: 180px; }
+    #rotValue { min-width: 4em; text-align: right; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <video id="video" autoplay playsinline muted></video>
+    <!-- 将来ここにゲーム描画や認識結果を重ねる -->
+    <canvas id="overlay"></canvas>
+  </div>
+  <div id="panel">
+    <span>回転</span>
+    <button id="rotLeft" type="button">⟲ 左 90°</button>
+    <input id="rotSlider" type="range" min="-180" max="180" step="1" value="0">
+    <button id="rotRight" type="button">右 90° ⟳</button>
+    <span id="rotValue">0°</span>
+    <button id="rotReset" type="button">リセット</button>
+  </div>
+  <div id="status">カメラを起動しています…</div>
+
+  <script>
+    const video = document.getElementById('video');
+    const status = document.getElementById('status');
+
+    // --- 回転パネル（表示だけを回す。取得するフレーム自体は回転しない） ---
+    const rotSlider = document.getElementById('rotSlider');
+    const rotValue = document.getElementById('rotValue');
+
+    function setRotation(deg) {
+      // -180〜180 の範囲に丸める
+      deg = ((deg + 180) % 360 + 360) % 360 - 180;
+      rotSlider.value = deg;
+      rotValue.textContent = `${deg}°`;
+      video.style.setProperty('--rot', `${deg}deg`);
+    }
+
+    rotSlider.addEventListener('input', () => setRotation(Number(rotSlider.value)));
+    document.getElementById('rotLeft').addEventListener('click', () => setRotation(Number(rotSlider.value) - 90));
+    document.getElementById('rotRight').addEventListener('click', () => setRotation(Number(rotSlider.value) + 90));
+    document.getElementById('rotReset').addEventListener('click', () => setRotation(0));
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 1280, height: 720, facingMode: 'user' },
+          audio: false,
+        });
+        video.srcObject = stream;
+        await video.play();
+        status.textContent = `カメラ映像: ${video.videoWidth} × ${video.videoHeight}`;
+      } catch (err) {
+        status.textContent = `カメラを取得できませんでした: ${err.name}（${err.message}）`;
+        console.error(err);
+      }
+    }
+
+    startCamera();
+  </script>
+</body>
+</html>
